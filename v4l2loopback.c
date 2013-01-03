@@ -100,13 +100,10 @@ enum
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE ("sink",
 								    GST_PAD_SINK,
 								    GST_PAD_ALWAYS,
-								    GST_STATIC_CAPS ("video/x-raw-yuv, width=[48, 32768], height=[32, 32768], format=(fourcc)YUY2")
+								    GST_STATIC_CAPS ("video/x-raw, width=[48, 32768], height=[32, 32768], format=(string)YUY2")
 								    );
 
-GST_BOILERPLATE (GstV4L2Loopback, gst_v4l2_loopback, GstVideoSink,
-		 GST_TYPE_VIDEO_SINK);
-
-//GST_BOILERPLATE_FULL (GstV4L2Loopback, gst_v4l2_loopback, GstVideoSink, GST_TYPE_VIDEO_SINK, gst_v4l2sink_init_interfaces);
+G_DEFINE_TYPE (GstV4L2Loopback, gst_v4l2_loopback, GST_TYPE_VIDEO_SINK);
 
 static void gst_v4l2_loopback_set_property (GObject * object, guint prop_id,
 					    const GValue * value, GParamSpec * pspec);
@@ -248,7 +245,7 @@ gst_v4l2loopback_change_state (GstElement * element, GstStateChange transition)
       break;
   }
 
-  ret = GST_ELEMENT_CLASS (parent_class)->change_state (element, transition);
+  ret = GST_ELEMENT_CLASS (gst_v4l2_loopback_parent_class)->change_state (element, transition);
 
   switch (transition) {
     case GST_STATE_CHANGE_READY_TO_NULL:
@@ -269,6 +266,7 @@ gst_v4l2loopback_show_frame (GstBaseSink * bsink, GstBuffer * buf)
 {
   GstV4L2Loopback *v4l2loopback = GST_V4L2_LOOPBACK (bsink);
   ssize_t ret=0;
+  GstMapInfo map;
 
   if(v4l2loopback->video_fd < 0) {
     return GST_FLOW_ERROR;
@@ -276,7 +274,11 @@ gst_v4l2loopback_show_frame (GstBaseSink * bsink, GstBuffer * buf)
 
   GST_DEBUG_OBJECT (v4l2loopback, "render buffer: %p", buf);
 
-  ret=write(v4l2loopback->video_fd, buf->data, buf->size);
+  if (!gst_buffer_map(buf, &map, GST_MAP_READ)) {
+    return GST_FLOW_ERROR;
+  }
+  ret=write(v4l2loopback->video_fd, map.data, map.size);
+  gst_buffer_unmap(buf, &map);
 
   GST_DEBUG_OBJECT (v4l2loopback, "wrote %d bytes to %d", ret, v4l2loopback->video_fd);
 
@@ -326,21 +328,6 @@ gst_v4l2_loopback_set_caps (GstBaseSink * bsink, GstCaps * caps)
 
 
 
-static void
-gst_v4l2_loopback_base_init (gpointer gclass)
-{
-  GstElementClass *element_class = GST_ELEMENT_CLASS (gclass);
-
-  gst_element_class_set_details_simple(element_class,
-				       "v4l2loopback",
-				       "V4L2 loopback sink",
-				       "this allows to send your data to a v4l2 loopback device",
-				       "IOhannes m zmoelnig <zmoelnig@iem.at>");
-
-  gst_element_class_add_pad_template (element_class,
-				      gst_static_pad_template_get (&sink_factory));
-}
-
 /* initialize the plugin's class */
 static void
 gst_v4l2_loopback_class_init (GstV4L2LoopbackClass * klass)
@@ -378,7 +365,18 @@ gst_v4l2_loopback_class_init (GstV4L2LoopbackClass * klass)
   basesink_class->render = GST_DEBUG_FUNCPTR (gst_v4l2loopback_show_frame);
 
   basesink_class->set_caps = GST_DEBUG_FUNCPTR(gst_v4l2_loopback_set_caps);
-  
+
+  //GstElementClass *element_class = GST_ELEMENT_CLASS (loop);
+
+  gst_element_class_set_details_simple(element_class,
+				       "v4l2loopback",
+				       "V4L2 loopback sink",
+				       "this allows to send your data to a v4l2 loopback device",
+				       "IOhannes m zmoelnig <zmoelnig@iem.at>");
+
+  gst_element_class_add_pad_template (element_class,
+				      gst_static_pad_template_get (&sink_factory));
+
 }
 
 
@@ -392,7 +390,7 @@ gst_v4l2_loopback_dispose (GObject * object)
     gst_caps_unref (loop->current_caps);
   }
 
-  G_OBJECT_CLASS (parent_class)->dispose (object);
+  G_OBJECT_CLASS (gst_v4l2_loopback_parent_class)->dispose (object);
 }
 
 
@@ -403,8 +401,7 @@ gst_v4l2_loopback_dispose (GObject * object)
  * initialize instance structure
  */
 static void
-gst_v4l2_loopback_init (GstV4L2Loopback * loop,
-			GstV4L2LoopbackClass * gclass)
+gst_v4l2_loopback_init (GstV4L2Loopback * loop)
 {
   g_object_set (loop, "device", "/dev/video1", NULL);
   loop->video_fd = -1;
@@ -504,7 +501,7 @@ plugin_init (GstPlugin * plugin)
 GST_PLUGIN_DEFINE (
 		   GST_VERSION_MAJOR,
 		   GST_VERSION_MINOR,
-		   "v4l2loopback",
+		   v4l2loopback,
 		   "V4L2 loopback device",
 		   plugin_init,
 		   VERSION,

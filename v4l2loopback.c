@@ -147,7 +147,7 @@ gst_v4l2loopback_set_format (GstV4L2Loopback * v4l2loop, guint32 width, guint32 
   v4l2loop->vformat.fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
   ret = ioctl(v4l2loop->video_fd, VIDIOC_S_FMT, &v4l2loop->vformat);
   if(-1 == ret) {
-    GST_DEBUG ("couldn't set format of '%s'", v4l2loop->videodev);
+    GST_ERROR_OBJECT (v4l2loop, "couldn't set format of '%s'", v4l2loop->videodev);
     return FALSE;
   }
 
@@ -156,7 +156,7 @@ gst_v4l2loopback_set_format (GstV4L2Loopback * v4l2loop, guint32 width, guint32 
 
   if((v4l2loop->vformat.fmt.pix.width == width) && (v4l2loop->vformat.fmt.pix.height == height)) {
   } else {
-    GST_DEBUG ("couldn't set format of '%s' to %dx%d (got %dx%d)", 
+    GST_ERROR_OBJECT (v4l2loop, "couldn't set format of '%s' to %dx%d (got %dx%d)", 
                v4l2loop->videodev, 
                width, height,
                v4l2loop->vformat.fmt.pix.width,
@@ -186,12 +186,12 @@ gst_v4l2loopback_start (GstV4L2Loopback * v4l2loop)
 
   /* check if it is a device */
   if (stat (v4l2loop->videodev, &st) == -1) {
-    GST_DEBUG ("Failed to stat '%s'", v4l2loop->videodev);
+    GST_ERROR_OBJECT (v4l2loop, "Failed to stat '%s'", v4l2loop->videodev);
     return FALSE;
   }
 
   if (!S_ISCHR (st.st_mode)) {
-    GST_DEBUG ("'%s' is no device", v4l2loop->videodev);
+    GST_ERROR_OBJECT (v4l2loop, "'%s' is no device", v4l2loop->videodev);
     return FALSE;
   }
 
@@ -199,18 +199,18 @@ gst_v4l2loopback_start (GstV4L2Loopback * v4l2loop)
   v4l2loop->video_fd = open (v4l2loop->videodev, O_RDWR /* | O_NONBLOCK */ );
 
   if(v4l2loop->video_fd < 0) {
-    GST_DEBUG ("Failed to open '%s'", v4l2loop->videodev);
+    GST_ERROR_OBJECT (v4l2loop, "Failed to open '%s'", v4l2loop->videodev);
     return FALSE;
   }
 
   /* check whether it's a video device */
   ret = ioctl(v4l2loop->video_fd, VIDIOC_QUERYCAP, &v4l2loop->vcap);
   if(-1 == ret) {
-    GST_DEBUG ("couldn't query caps of '%s'", v4l2loop->videodev);
+    GST_ERROR_OBJECT (v4l2loop, "couldn't query caps of '%s'", v4l2loop->videodev);
     goto close_it;
   }
   if( !(v4l2loop->vcap.capabilities & V4L2_CAP_VIDEO_OUTPUT) ) {
-    GST_DEBUG("device '%s' is not a video4linux2 output device", v4l2loop->videodev);
+    GST_ERROR_OBJECT (v4l2loop, "device '%s' is not a video4linux2 output device", v4l2loop->videodev);
     goto close_it;
   }
 
@@ -220,7 +220,7 @@ gst_v4l2loopback_start (GstV4L2Loopback * v4l2loop)
   return TRUE;
 
  close_it:
-  gst_v4l2loopback_stop ( v4l2loop);
+  gst_v4l2loopback_stop (v4l2loop);
 
   return FALSE;
 }
